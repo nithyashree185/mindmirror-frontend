@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getInsightsTimeline } from '../api/services';
+import { getInsightsTimeline, getMoods } from '../api/services';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 
@@ -12,9 +12,68 @@ const TimelinePage = () => {
   useEffect(() => {
     const fetchTimeline = async () => {
       try {
-        const res = await getInsightsTimeline(user.id);
-        // API returns an array: [{ date: 'Mon', fullDate: '12 Oct', mood: 'sad', intensity: 3, color: 'red' }]
-        setData(Array.isArray(res) ? res : []);
+        const [timelineRes, moodsRes] = await Promise.all([
+          getInsightsTimeline(user.id).catch(() => []),
+          getMoods(user.id).catch(() => [])
+        ]);
+
+        let finalTimelineData = [];
+
+        if (moodsRes && moodsRes.length > 0) {
+          // Sort chronologically ascending
+          const sortedMoods = [...moodsRes].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+          
+          const moodColors = {
+            // Negative / Stress (Intensity 1)
+            sad: '#ef4444',
+            anxious: '#f97316',
+            angry: '#ef4444',
+            stressed: '#f97316',
+            overwhelmed: '#f97316',
+            fearful: '#ef4444',
+            depressed: '#b91c1c',
+            
+            // Neutral / Calm (Intensity 2)
+            neutral: '#3b82f6',
+            calm: '#3b82f6',
+            peaceful: '#3b82f6',
+            content: '#3b82f6',
+            
+            // Positive (Intensity 3)
+            happy: '#10b981',
+            joyful: '#10b981',
+            excited: '#10b981',
+            grateful: '#10b981',
+            proud: '#10b981'
+          };
+
+          const moodIntensities = {
+            sad: 1, anxious: 1, angry: 1, stressed: 1, overwhelmed: 1, fearful: 1, depressed: 1,
+            neutral: 2, calm: 2, peaceful: 2, content: 2,
+            happy: 3, joyful: 3, excited: 3, grateful: 3, proud: 3
+          };
+
+          finalTimelineData = sortedMoods.map(m => {
+            const dateObj = new Date(m.createdAt);
+            const formattedDate = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+            const formattedTime = dateObj.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+            const moodKey = m.mood?.toLowerCase() || 'neutral';
+            
+            return {
+              date: dateObj.toLocaleDateString(undefined, { weekday: 'short' }),
+              fullDate: `${formattedDate} ${formattedTime}`,
+              mood: m.mood || 'Neutral',
+              intensity: moodIntensities[moodKey] || 2,
+              color: moodColors[moodKey] || '#3b82f6'
+            };
+          });
+        }
+        
+        if (finalTimelineData.length === 0 && Array.isArray(timelineRes) && timelineRes.length > 0) {
+          finalTimelineData = timelineRes;
+        }
+
+        setData(finalTimelineData);
       } catch (error) {
         console.error("Failed to fetch timeline", error);
       } finally {
