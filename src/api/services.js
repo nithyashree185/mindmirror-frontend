@@ -26,18 +26,27 @@ export const createChat = async (userId, title) => {
 };
 
 export const deleteChat = async (chatId) => {
-  try {
-    const response = await api.delete(`/chat/${chatId}`);
-    return response.data;
-  } catch (error) {
+  // Try multiple endpoint patterns to match the backend
+  const attempts = [
+    () => api.delete(`/chat/${chatId}`),
+    () => api.delete(`/chat/delete/${chatId}`),
+    () => api.post('/chat/delete', { chatId }),
+    () => api.post(`/chat/delete/${chatId}`),
+  ];
+
+  for (const attempt of attempts) {
     try {
-      const response = await api.post('/chat/delete', { chatId });
+      const response = await attempt();
       return response.data;
     } catch (err) {
-      console.warn("Delete endpoint not supported on backend, falling back to UI-only delete", err);
-      return { success: true };
+      // 404 means endpoint doesn't exist, try next pattern
+      // 400/500 means endpoint exists but failed — still try next
+      continue;
     }
   }
+
+  // If no endpoint worked, throw so the UI knows deletion failed
+  throw new Error('Could not delete chat — no working delete endpoint found on backend');
 };
 
 export const sendMessage = async (chatId, message, userId) => {

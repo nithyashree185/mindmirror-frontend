@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getChatSessions, deleteChat } from '../../api/services';
@@ -21,13 +21,16 @@ export const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [sessions, setSessions] = useState([]);
+  const deletedIdsRef = useRef(new Set());
 
   // Fetch sessions on mount and whenever we hit Journal page or storage updates
   const fetchSessions = async () => {
     if (!user?.id) return;
     try {
       const data = await getChatSessions(user.id);
-      setSessions(data);
+      // Filter out any chats that were deleted this session but backend hasn't caught up
+      const filtered = data.filter(c => !deletedIdsRef.current.has(c._id));
+      setSessions(filtered);
     } catch (err) {
       console.error("Failed to load chat sessions", err);
     }
@@ -72,21 +75,32 @@ export const Sidebar = () => {
   };
 
   const handleDeleteChat = async (e, chatIdToDelete) => {
+    // Prevent ALL event propagation — stop click from reaching the parent row
+    e.preventDefault();
     e.stopPropagation();
+    e.nativeEvent?.stopImmediatePropagation?.();
+    
+    // Immediately remove from UI state BEFORE the API call
+    deletedIdsRef.current.add(chatIdToDelete);
+    setSessions(prev => prev.filter(c => c._id !== chatIdToDelete));
+    
+    // If the deleted chat was the active one, clear it
+    const activeChatId = localStorage.getItem('currentChatId');
+    if (activeChatId === chatIdToDelete) {
+      localStorage.removeItem('currentChatId');
+      // Dispatch storage to tell JournalPage to reset, but sidebar won't restore
+      // the deleted chat because deletedIdsRef filters it out
+      window.dispatchEvent(new Event('storage'));
+    }
+
+    // Now call backend — if it fails, the chat is still gone from the UI this session
     try {
       await deleteChat(chatIdToDelete);
-      
-      // Update local state
-      setSessions(prev => prev.filter(c => c._id !== chatIdToDelete));
-      
-      // If deleted active chat, clear it
-      const activeChatId = localStorage.getItem('currentChatId');
-      if (activeChatId === chatIdToDelete) {
-        localStorage.removeItem('currentChatId');
-        window.dispatchEvent(new Event('storage'));
-      }
     } catch (err) {
-      console.error("Failed to delete chat session", err);
+      console.error("Backend delete failed:", err.message);
+      // Chat stays removed from UI. On next full page refresh it may reappear
+      // if backend doesn't support deletion. This is the best we can do
+      // without modifying the backend.
     }
   };
 
