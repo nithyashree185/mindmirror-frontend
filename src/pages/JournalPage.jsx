@@ -16,11 +16,16 @@ const JournalPage = () => {
   
   const messagesEndRef = useRef(null);
   const loadedChatIdRef = useRef(chatId);
+  const messagesRef = useRef(messages);
 
-  // Sync ref with state
+  // Sync refs with state to prevent stale closures in event listeners
   useEffect(() => {
     loadedChatIdRef.current = chatId;
   }, [chatId]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   // Load chat session messages from backend
   const loadChat = async (force = false) => {
@@ -29,8 +34,8 @@ const JournalPage = () => {
     const storedChatId = localStorage.getItem('currentChatId');
     
     if (storedChatId) {
-      // Avoid duplicate fetches/reloads if already displaying this chat
-      if (storedChatId === loadedChatIdRef.current && messages.length > 0 && !force) {
+      // Avoid duplicate fetches/reloads if already displaying this chat with messages
+      if (storedChatId === loadedChatIdRef.current && messagesRef.current.length > 0 && !force) {
         return;
       }
       
