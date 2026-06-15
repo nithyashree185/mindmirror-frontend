@@ -64,12 +64,79 @@ const DashboardPage = () => {
     return <div className="h-full flex items-center justify-center text-[#64748b]">Loading your space...</div>;
   }
 
+  const getCalculatedDominantMood = () => {
+    if (profile?.dominantMood && profile.dominantMood !== 'neutral') {
+      return profile.dominantMood;
+    }
+    if (moods.length > 0) {
+      const counts = {};
+      moods.forEach(m => {
+        if (m.mood) {
+          counts[m.mood] = (counts[m.mood] || 0) + 1;
+        }
+      });
+      let maxMood = '';
+      let maxCount = 0;
+      Object.entries(counts).forEach(([mood, count]) => {
+        if (count > maxCount) {
+          maxCount = count;
+          maxMood = mood;
+        }
+      });
+      if (maxMood) return maxMood;
+    }
+    return profile?.dominantMood || 'neutral';
+  };
+
+  const getCalculatedStressLevel = () => {
+    if (profile?.stressLevel && profile.stressLevel !== 'unknown' && profile.stressLevel !== 'medium') {
+      return profile.stressLevel;
+    }
+    if (moods.length > 0) {
+      const stressMoods = ['sad', 'anxious', 'angry', 'stressed', 'overwhelmed', 'fearful', 'depressed'];
+      const count = moods.filter(m => stressMoods.includes(m.mood?.toLowerCase())).length;
+      const ratio = count / moods.length;
+      if (ratio > 0.5) return 'high';
+      if (ratio > 0.2) return 'medium';
+      return 'low';
+    }
+    return profile?.stressLevel || 'low';
+  };
+
+  const getCalculatedPositivity = () => {
+    if (profile?.positivity && profile.positivity !== 'unknown' && profile.positivity !== 'medium') {
+      return profile.positivity;
+    }
+    if (moods.length > 0) {
+      const positiveMoods = ['happy', 'joyful', 'excited', 'calm', 'peaceful', 'content', 'grateful', 'proud'];
+      const count = moods.filter(m => positiveMoods.includes(m.mood?.toLowerCase())).length;
+      const ratio = count / moods.length;
+      if (ratio > 0.6) return 'high';
+      if (ratio > 0.3) return 'medium';
+      return 'low';
+    }
+    return profile?.positivity || 'medium';
+  };
+
+  const getCalculatedStability = () => {
+    if (profile?.emotionalStability && profile.emotionalStability !== 'unknown' && profile.emotionalStability !== 'medium') {
+      return profile.emotionalStability;
+    }
+    if (moods.length > 0) {
+      const uniqueMoods = new Set(moods.map(m => m.mood?.toLowerCase()).filter(Boolean));
+      if (uniqueMoods.size <= 2) return 'high';
+      if (uniqueMoods.size <= 4) return 'medium';
+      return 'low';
+    }
+    return profile?.emotionalStability || 'medium';
+  };
+
   const moodChartData = weekly?.moodCount 
     ? Object.entries(weekly.moodCount).map(([key, val]) => ({ name: key, value: val }))
     : [];
 
   const topTrigger = triggers.length > 0 ? triggers[0] : null;
-  const hasData = streak?.totalJournalDays > 0;
+  const hasData = moods.length > 0;
 
   return (
     <div className="space-y-8 pb-12 animate-in fade-in duration-500">
@@ -137,7 +204,7 @@ const DashboardPage = () => {
                   <span className="text-sm font-medium text-[#64748b]">Dominant Mood</span>
                   <TrendingUp className="w-4 h-4 text-purple-500" />
                 </div>
-                <span className="text-2xl font-bold text-[#2f4f4f] capitalize line-clamp-1">{profile?.dominantMood || 'Neutral'}</span>
+                <span className="text-2xl font-bold text-[#2f4f4f] capitalize line-clamp-1">{getCalculatedDominantMood()}</span>
                 <p className="text-xs text-[#9ca3af] mt-1">From recent entries</p>
               </CardContent>
             </Card>
@@ -148,9 +215,9 @@ const DashboardPage = () => {
                   <span className="text-sm font-medium text-[#64748b]">Stress Level</span>
                   <AlertCircle className="w-4 h-4 text-rose-500" />
                 </div>
-                <span className="text-2xl font-bold text-[#2f4f4f] capitalize">{profile?.stressLevel || 'Unknown'}</span>
+                <span className="text-2xl font-bold text-[#2f4f4f] capitalize">{getCalculatedStressLevel()}</span>
                 <p className="text-xs text-[#9ca3af] mt-1">
-                  Positivity: <span className="capitalize">{profile?.positivity || 'Unknown'}</span>
+                  Positivity: <span className="capitalize">{getCalculatedPositivity()}</span>
                 </p>
               </CardContent>
             </Card>

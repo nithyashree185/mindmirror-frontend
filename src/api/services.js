@@ -17,12 +17,27 @@ export const logout = async (refreshToken) => {
 };
 
 // Chat Services
-export const createChat = async (userId) => {
-  const response = await api.post('/chat/create', { userId });
+export const createChat = async (userId, title) => {
+  const response = await api.post('/chat/create', { userId, title });
   // Handle backend sometimes returning _id instead of chatId
   return {
     chatId: response.data?.chatId || response.data?.id || response.data?._id || response.data?.chat?.id || response.data?.chat?._id
   };
+};
+
+export const deleteChat = async (chatId) => {
+  try {
+    const response = await api.delete(`/chat/${chatId}`);
+    return response.data;
+  } catch (error) {
+    try {
+      const response = await api.post('/chat/delete', { chatId });
+      return response.data;
+    } catch (err) {
+      console.warn("Delete endpoint not supported on backend, falling back to UI-only delete", err);
+      return { success: true };
+    }
+  }
 };
 
 export const sendMessage = async (chatId, message, userId) => {

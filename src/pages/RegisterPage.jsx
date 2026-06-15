@@ -21,7 +21,7 @@ const RegisterPage = () => {
     
     const result = await register(name, email, password);
     if (result.success) {
-      navigate('/dashboard');
+      navigate('/login', { state: { message: 'Account created successfully. Please log in.' } });
     } else {
       setError(result.error);
     }

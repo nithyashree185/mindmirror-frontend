@@ -33,6 +33,73 @@ const ProfilePage = () => {
     if (user?.id) fetchProfile();
   }, [user]);
 
+  const getCalculatedDominantMood = () => {
+    if (profile?.dominantMood && profile.dominantMood !== 'neutral') {
+      return profile.dominantMood;
+    }
+    if (moods.length > 0) {
+      const counts = {};
+      moods.forEach(m => {
+        if (m.mood) {
+          counts[m.mood] = (counts[m.mood] || 0) + 1;
+        }
+      });
+      let maxMood = '';
+      let maxCount = 0;
+      Object.entries(counts).forEach(([mood, count]) => {
+        if (count > maxCount) {
+          maxCount = count;
+          maxMood = mood;
+        }
+      });
+      if (maxMood) return maxMood;
+    }
+    return profile?.dominantMood || 'neutral';
+  };
+
+  const getCalculatedStressLevel = () => {
+    if (profile?.stressLevel && profile.stressLevel !== 'unknown' && profile.stressLevel !== 'medium') {
+      return profile.stressLevel;
+    }
+    if (moods.length > 0) {
+      const stressMoods = ['sad', 'anxious', 'angry', 'stressed', 'overwhelmed', 'fearful', 'depressed'];
+      const count = moods.filter(m => stressMoods.includes(m.mood?.toLowerCase())).length;
+      const ratio = count / moods.length;
+      if (ratio > 0.5) return 'high';
+      if (ratio > 0.2) return 'medium';
+      return 'low';
+    }
+    return profile?.stressLevel || 'low';
+  };
+
+  const getCalculatedPositivity = () => {
+    if (profile?.positivity && profile.positivity !== 'unknown' && profile.positivity !== 'medium') {
+      return profile.positivity;
+    }
+    if (moods.length > 0) {
+      const positiveMoods = ['happy', 'joyful', 'excited', 'calm', 'peaceful', 'content', 'grateful', 'proud'];
+      const count = moods.filter(m => positiveMoods.includes(m.mood?.toLowerCase())).length;
+      const ratio = count / moods.length;
+      if (ratio > 0.6) return 'high';
+      if (ratio > 0.3) return 'medium';
+      return 'low';
+    }
+    return profile?.positivity || 'medium';
+  };
+
+  const getCalculatedStability = () => {
+    if (profile?.emotionalStability && profile.emotionalStability !== 'unknown' && profile.emotionalStability !== 'medium') {
+      return profile.emotionalStability;
+    }
+    if (moods.length > 0) {
+      const uniqueMoods = new Set(moods.map(m => m.mood?.toLowerCase()).filter(Boolean));
+      if (uniqueMoods.size <= 2) return 'high';
+      if (uniqueMoods.size <= 4) return 'medium';
+      return 'low';
+    }
+    return profile?.emotionalStability || 'medium';
+  };
+
   if (isLoading) {
     return <div className="h-full flex items-center justify-center text-[#64748b]">Loading profile...</div>;
   }
@@ -116,7 +183,7 @@ const ProfilePage = () => {
           <CardContent className="p-5 flex flex-col gap-2">
             <p className="text-sm text-[#64748b]">Dominant Mood</p>
             <p className="text-2xl font-bold text-[#2f4f4f] capitalize">
-              {hasData ? (profile?.dominantMood || 'N/A') : '—'}
+              {hasData ? getCalculatedDominantMood() : '—'}
             </p>
           </CardContent>
         </Card>
@@ -182,13 +249,13 @@ const ProfilePage = () => {
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm font-medium text-[#64748b]">Stress Level</span>
-                    <span className="text-sm font-bold text-[#2f4f4f] capitalize">{profile?.stressLevel || 'Unknown'}</span>
+                    <span className="text-sm font-bold text-[#2f4f4f] capitalize">{getCalculatedStressLevel()}</span>
                   </div>
                   <div className="h-2 w-full bg-[#f1f5f9] rounded-full overflow-hidden">
                     <div className={cn(
                       "h-full rounded-full transition-all duration-1000",
-                      profile?.stressLevel === 'high' ? 'w-full bg-rose-500' :
-                      profile?.stressLevel === 'medium' ? 'w-1/2 bg-amber-500' : 'w-1/4 bg-emerald-500'
+                      getCalculatedStressLevel() === 'high' ? 'w-full bg-rose-500' :
+                      getCalculatedStressLevel() === 'medium' ? 'w-1/2 bg-amber-500' : 'w-1/4 bg-emerald-500'
                     )} />
                   </div>
                 </div>
@@ -196,13 +263,13 @@ const ProfilePage = () => {
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm font-medium text-[#64748b]">Positivity</span>
-                    <span className="text-sm font-bold text-[#2f4f4f] capitalize">{profile?.positivity || 'Unknown'}</span>
+                    <span className="text-sm font-bold text-[#2f4f4f] capitalize">{getCalculatedPositivity()}</span>
                   </div>
                   <div className="h-2 w-full bg-[#f1f5f9] rounded-full overflow-hidden">
                     <div className={cn(
                       "h-full rounded-full transition-all duration-1000",
-                      profile?.positivity === 'high' ? 'w-full bg-emerald-500' :
-                      profile?.positivity === 'medium' ? 'w-1/2 bg-amber-500' : 'w-1/4 bg-rose-500'
+                      getCalculatedPositivity() === 'high' ? 'w-full bg-emerald-500' :
+                      getCalculatedPositivity() === 'medium' ? 'w-1/2 bg-amber-500' : 'w-1/4 bg-rose-500'
                     )} />
                   </div>
                 </div>
@@ -210,13 +277,13 @@ const ProfilePage = () => {
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm font-medium text-[#64748b]">Emotional Stability</span>
-                    <span className="text-sm font-bold text-[#2f4f4f] capitalize">{profile?.emotionalStability || 'Unknown'}</span>
+                    <span className="text-sm font-bold text-[#2f4f4f] capitalize">{getCalculatedStability()}</span>
                   </div>
                   <div className="h-2 w-full bg-[#f1f5f9] rounded-full overflow-hidden">
                     <div className={cn(
                       "h-full rounded-full transition-all duration-1000",
-                      profile?.emotionalStability === 'high' ? 'w-full bg-[#8b5cf6]' :
-                      profile?.emotionalStability === 'medium' ? 'w-1/2 bg-[#a78bfa]' : 'w-1/4 bg-[#ddd6fe]'
+                      getCalculatedStability() === 'high' ? 'w-full bg-[#8b5cf6]' :
+                      getCalculatedStability() === 'medium' ? 'w-1/2 bg-[#a78bfa]' : 'w-1/4 bg-[#ddd6fe]'
                     )} />
                   </div>
                 </div>

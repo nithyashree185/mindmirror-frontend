@@ -38,14 +38,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (name, email, password) => {
     try {
-      const data = await registerService({ name, email, password });
-      localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('refreshToken', data.refreshToken);
-      localStorage.setItem('userId', data.userId);
-      localStorage.setItem('userName', data.name || name);
-      localStorage.setItem('userEmail', data.email || email);
-      localStorage.setItem('userCreatedAt', data.createdAt || new Date().toISOString());
-      setUser({ id: data.userId, name: data.name || name, email: data.email || email, createdAt: data.createdAt });
+      await registerService({ name, email, password });
       return { success: true };
     } catch (error) {
       return { success: false, error: error.response?.data?.message || 'Registration failed' };
@@ -61,13 +54,7 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Logout error', error);
     } finally {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('userId');
-      localStorage.removeItem('userName');
-      localStorage.removeItem('userEmail');
-      localStorage.removeItem('userCreatedAt');
-      localStorage.removeItem('currentChatId');
+      localStorage.clear();
       setUser(null);
     }
   };

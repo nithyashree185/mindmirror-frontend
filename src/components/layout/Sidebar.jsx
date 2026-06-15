@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { getChatSessions } from '../../api/services';
+import { getChatSessions, deleteChat } from '../../api/services';
 import { 
   LayoutDashboard, 
   BookOpen, 
@@ -11,7 +11,8 @@ import {
   LogOut,
   Brain,
   Plus,
-  MessageSquare
+  MessageSquare,
+  Trash2
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -21,20 +22,29 @@ export const Sidebar = () => {
   const location = useLocation();
   const [sessions, setSessions] = useState([]);
 
-  // Fetch sessions on mount and whenever we hit Journal page
-  // (to update list if a new one was created)
+  // Fetch sessions on mount and whenever we hit Journal page or storage updates
+  const fetchSessions = async () => {
+    if (!user?.id) return;
+    try {
+      const data = await getChatSessions(user.id);
+      setSessions(data);
+    } catch (err) {
+      console.error("Failed to load chat sessions", err);
+    }
+  };
+
   useEffect(() => {
-    const fetchSessions = async () => {
-      if (!user?.id) return;
-      try {
-        const data = await getChatSessions(user.id);
-        setSessions(data);
-      } catch (err) {
-        console.error("Failed to load chat sessions", err);
-      }
-    };
     fetchSessions();
   }, [user, location.pathname]);
+
+  useEffect(() => {
+    // Listen for custom/storage events to keep sidebar in sync
+    const handleSync = () => {
+      fetchSessions();
+    };
+    window.addEventListener('storage', handleSync);
+    return () => window.removeEventListener('storage', handleSync);
+  }, [user]);
 
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -58,6 +68,25 @@ export const Sidebar = () => {
     } else {
       // Trigger journal to reload
       window.dispatchEvent(new Event('storage'));
+    }
+  };
+
+  const handleDeleteChat = async (e, chatIdToDelete) => {
+    e.stopPropagation();
+    try {
+      await deleteChat(chatIdToDelete);
+      
+      // Update local state
+      setSessions(prev => prev.filter(c => c._id !== chatIdToDelete));
+      
+      // If deleted active chat, clear it
+      const activeChatId = localStorage.getItem('currentChatId');
+      if (activeChatId === chatIdToDelete) {
+        localStorage.removeItem('currentChatId');
+        window.dispatchEvent(new Event('storage'));
+      }
+    } catch (err) {
+      console.error("Failed to delete chat session", err);
     }
   };
 
@@ -86,6 +115,28 @@ export const Sidebar = () => {
   };
 
   const grouped = groupSessions();
+
+  const renderChatRow = (c) => (
+    <div 
+      key={c._id} 
+      className="group flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-[#f5f3ff] text-[#64748b] hover:text-[#483d8b] transition-colors"
+    >
+      <button 
+        onClick={() => handleSelectChat(c._id)} 
+        className="flex items-center gap-2 truncate text-left text-sm flex-1 mr-2 outline-none"
+      >
+        <MessageSquare className="w-3.5 h-3.5 shrink-0" /> 
+        <span className="truncate">{c.title || 'Untitled Session'}</span>
+      </button>
+      <button 
+        onClick={(e) => handleDeleteChat(e, c._id)} 
+        className="opacity-0 group-hover:opacity-100 hover:text-[#ef4444] transition-all p-0.5 rounded shrink-0 outline-none"
+        title="Delete Reflection"
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
 
   return (
     <aside className="fixed inset-y-0 left-0 w-64 bg-white border-r border-[#e5e7eb] flex flex-col pt-8 pb-6 px-4 z-20">
@@ -135,41 +186,25 @@ export const Sidebar = () => {
             {grouped.today.length > 0 && (
               <div>
                 <p className="text-[11px] font-semibold text-[#9ca3af] uppercase px-2 mb-1">Today</p>
-                {grouped.today.map(c => (
-                  <button key={c._id} onClick={() => handleSelectChat(c._id)} className="w-full text-left truncate px-2 py-1.5 text-sm text-[#64748b] hover:bg-[#f5f3ff] hover:text-[#483d8b] rounded-md transition-colors flex items-center gap-2">
-                    <MessageSquare className="w-3.5 h-3.5 shrink-0" /> <span className="truncate">{c.title}</span>
-                  </button>
-                ))}
+                {grouped.today.map(renderChatRow)}
               </div>
             )}
             {grouped.yesterday.length > 0 && (
               <div>
                 <p className="text-[11px] font-semibold text-[#9ca3af] uppercase px-2 mb-1">Yesterday</p>
-                {grouped.yesterday.map(c => (
-                  <button key={c._id} onClick={() => handleSelectChat(c._id)} className="w-full text-left truncate px-2 py-1.5 text-sm text-[#64748b] hover:bg-[#f5f3ff] hover:text-[#483d8b] rounded-md transition-colors flex items-center gap-2">
-                    <MessageSquare className="w-3.5 h-3.5 shrink-0" /> <span className="truncate">{c.title}</span>
-                  </button>
-                ))}
+                {grouped.yesterday.map(renderChatRow)}
               </div>
             )}
             {grouped.thisWeek.length > 0 && (
               <div>
                 <p className="text-[11px] font-semibold text-[#9ca3af] uppercase px-2 mb-1">This Week</p>
-                {grouped.thisWeek.map(c => (
-                  <button key={c._id} onClick={() => handleSelectChat(c._id)} className="w-full text-left truncate px-2 py-1.5 text-sm text-[#64748b] hover:bg-[#f5f3ff] hover:text-[#483d8b] rounded-md transition-colors flex items-center gap-2">
-                    <MessageSquare className="w-3.5 h-3.5 shrink-0" /> <span className="truncate">{c.title}</span>
-                  </button>
-                ))}
+                {grouped.thisWeek.map(renderChatRow)}
               </div>
             )}
             {grouped.older.length > 0 && (
               <div>
                 <p className="text-[11px] font-semibold text-[#9ca3af] uppercase px-2 mb-1">Older</p>
-                {grouped.older.map(c => (
-                  <button key={c._id} onClick={() => handleSelectChat(c._id)} className="w-full text-left truncate px-2 py-1.5 text-sm text-[#64748b] hover:bg-[#f5f3ff] hover:text-[#483d8b] rounded-md transition-colors flex items-center gap-2">
-                    <MessageSquare className="w-3.5 h-3.5 shrink-0" /> <span className="truncate">{c.title}</span>
-                  </button>
-                ))}
+                {grouped.older.map(renderChatRow)}
               </div>
             )}
           </div>

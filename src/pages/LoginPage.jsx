@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Brain, ArrowRight } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 
 const LoginPage = () => {
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const successMessage = location.state?.message;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -49,6 +51,11 @@ const LoginPage = () => {
             {error && (
               <div className="bg-[#fef2f2] text-[#ef4444] p-3 rounded-lg text-sm text-center">
                 {error}
+              </div>
+            )}
+            {successMessage && !error && (
+              <div className="bg-emerald-50 text-emerald-700 p-3 rounded-lg text-sm text-center border border-emerald-100">
+                {successMessage}
               </div>
             )}
             <div>
